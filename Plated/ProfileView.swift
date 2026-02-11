@@ -10,7 +10,6 @@ struct ProfileView: View {
         order: .reverse
     ) private var sessions: [WorkoutSession]
 
-    @AppStorage("unitPreference") private var unitPreference: String = "lb"
     @State private var showingPlanEditor = false
 
     private let weekdays = [
@@ -25,25 +24,17 @@ struct ProfileView: View {
                 }
             }
 
-            Section("Workout Plan") {
-                ForEach(planDays) { day in
-                    PlanDaySummaryRow(day: day, weekdayName: weekdayName(for: day.weekday))
-                }
-                Button("Edit Plan") { showingPlanEditor = true }
-            }
-
             Section("Quick Stats") {
                 StatRow(label: "Total Workouts", value: "\(completedSessions.count)")
                 StatRow(label: "Last Workout", value: lastWorkoutText)
                 StatRow(label: "Weekly Streak", value: "\(weeklyStreakCount)")
             }
 
-            Section("Preferences") {
-                Picker("Default Units", selection: $unitPreference) {
-                    Text("lb").tag("lb")
-                    Text("kg").tag("kg")
+            Section("Workout Plan") {
+                ForEach(planDays) { day in
+                    PlanDaySummaryRow(day: day, weekdayName: weekdayName(for: day.weekday))
                 }
-                .pickerStyle(.segmented)
+                Button("Edit Plan") { showingPlanEditor = true }
             }
         }
         .navigationTitle("Profile")

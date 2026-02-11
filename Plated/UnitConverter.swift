@@ -19,6 +19,9 @@ enum UnitConverter {
 
     static func formattedWeight(_ pounds: Double, unit: String) -> String {
         let value = displayWeight(from: pounds, unit: unit)
+        if value.truncatingRemainder(dividingBy: 1) == 0 {
+            return String(format: "%.0f", value)
+        }
         return String(format: "%.1f", value)
     }
 }

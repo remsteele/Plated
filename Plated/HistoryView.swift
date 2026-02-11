@@ -117,7 +117,7 @@ private struct WorkoutDetailView: View {
                             HStack {
                                 Text("Set \(set.setIndex)")
                                 Spacer()
-                                Text("\(UnitConverter.formattedWeight(set.weight, unit: unitPreference)) x \(set.reps)")
+                                Text("\(UnitConverter.formattedWeight(set.weight, unit: unitPreference)) \(unitPreference.lowercased()) x \(set.reps)")
                             }
                             .font(set.id == movement.bestSet?.id ? .headline : .subheadline)
                         }

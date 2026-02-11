@@ -243,7 +243,7 @@ private struct SetRowView: View {
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 80)
                     }
-                    Text(unit)
+                    Text(unit.lowercased())
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
