@@ -17,39 +17,41 @@ struct RootTabsView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            TabView(selection: $selectedTab) {
-                NavigationStack {
-                    ProfileView()
-                }
-                .tabItem { Label("Profile", systemImage: "person.crop.circle") }
-                .tag(0)
-
-                NavigationStack {
-                    HistoryView()
-                }
-                .tabItem { Label("History", systemImage: "clock") }
-                .tag(1)
-
-                NavigationStack {
-                    TemplatesView()
-                }
-                .tabItem { Label("Templates", systemImage: "list.bullet.rectangle") }
-                .tag(2)
-
-                NavigationStack {
-                    SettingsView()
-                }
-                .tabItem { Label("Settings", systemImage: "gearshape") }
-                .tag(3)
+        TabView(selection: $selectedTab) {
+            NavigationStack {
+                ProfileView()
             }
-            StartWorkoutButton {
+            .tabItem { Label("Profile", systemImage: "person.crop.circle") }
+            .tag(0)
+
+            NavigationStack {
+                HistoryView()
+            }
+            .tabItem { Label("History", systemImage: "clock") }
+            .tag(1)
+
+            NavigationStack {
+                TemplatesView()
+            }
+            .tabItem { Label("Templates", systemImage: "list.bullet.rectangle") }
+            .tag(2)
+
+            NavigationStack {
+                SettingsView()
+            }
+            .tabItem { Label("Settings", systemImage: "gearshape") }
+            .tag(3)
+        }
+        .overlay(alignment: .bottom) {
+            StartWorkoutBar {
                 if let current = inProgressSessions.first {
                     activeSession = current
                 } else {
                     showingStartSheet = true
                 }
             }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 58)
         }
         .sheet(isPresented: $showingStartSheet) {
             StartWorkoutSheet { template in
@@ -63,7 +65,7 @@ struct RootTabsView: View {
     }
 }
 
-private struct StartWorkoutButton: View {
+private struct StartWorkoutBar: View {
     var action: () -> Void
 
     var body: some View {
@@ -74,12 +76,11 @@ private struct StartWorkoutButton: View {
                     .fontWeight(.semibold)
             }
             .padding(.horizontal, 20)
-            .padding(.vertical, 12)
-            .background(Color.primary)
-            .foregroundColor(Color(UIColor.systemBackground))
-            .clipShape(Capsule())
-            .shadow(radius: 8)
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
         }
-        .padding(.bottom, 24)
+        .background(.ultraThinMaterial)
+        .clipShape(Capsule())
+        .shadow(radius: 6)
     }
 }
