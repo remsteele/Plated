@@ -86,6 +86,8 @@ private struct WorkoutDetailView: View {
     var onDuplicate: () -> Void
 
     @AppStorage("unitPreference") private var unitPreference: String = "lb"
+    @EnvironmentObject private var startWorkoutCoordinator: StartWorkoutCoordinator
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         ScrollView {
@@ -127,13 +129,26 @@ private struct WorkoutDetailView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 16))
                 }
 
-                Button("Duplicate as New Workout") {
-                    onDuplicate()
-                }
-                .buttonStyle(.borderedProminent)
             }
             .padding()
         }
         .navigationTitle("Workout Detail")
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    startWorkoutCoordinator.reset()
+                    dismiss()
+                } label: {
+                    Label("Back", systemImage: "chevron.left")
+                }
+            }
+        }
+        .onAppear {
+            startWorkoutCoordinator.setDuplicate(session: session)
+        }
+        .onDisappear {
+            startWorkoutCoordinator.reset()
+        }
     }
 }
