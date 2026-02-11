@@ -10,7 +10,10 @@ struct ProfileView: View {
         order: .reverse
     ) private var sessions: [WorkoutSession]
 
+    @AppStorage("unitPreference") private var unitPreference: String = "lb"
+
     @State private var showingPlanEditor = false
+    @State private var profileStats: ProfileStats?
 
     private let weekdays = [
         (1, "Mon"), (2, "Tue"), (3, "Wed"), (4, "Thu"), (5, "Fri"), (6, "Sat"), (7, "Sun")
@@ -21,6 +24,16 @@ struct ProfileView: View {
             if let profile = profiles.first {
                 Section("Profile") {
                     ProfileHeaderView(profile: profile)
+                }
+            }
+
+            Section("Stats") {
+                StatsCardView(stats: profileStats, unitPreference: unitPreference)
+
+                NavigationLink {
+                    ExerciseHistoryListView()
+                } label: {
+                    Label("Exercise History", systemImage: "chart.xyaxis.line")
                 }
             }
 
@@ -44,6 +57,9 @@ struct ProfileView: View {
             }
         }
         .onAppear { ensureProfileAndPlan() }
+        .task(id: completedSessions.count) {
+            profileStats = StatsService.profileStats(sessions: completedSessions)
+        }
     }
 
     private var planDays: [PlannedWorkoutDay] {
@@ -140,6 +156,79 @@ private struct StatRow: View {
             Spacer()
             Text(value)
                 .foregroundStyle(.secondary)
+        }
+    }
+}
+
+private struct StatsCardView: View {
+    let stats: ProfileStats?
+    let unitPreference: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            StatMetricRow(
+                title: "Total Volume (7d)",
+                value: volumeText
+            )
+            StatMetricRow(
+                title: "Workouts (7d)",
+                value: stats?.workoutCount.description ?? "—"
+            )
+            StatMetricRow(
+                title: "Strength Trend",
+                value: trendText,
+                trend: stats?.strengthTrend
+            )
+            StatMetricRow(
+                title: "Top Muscle Groups (7d)",
+                value: muscleGroupText
+            )
+        }
+        .padding()
+        .background(Color(UIColor.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    private var volumeText: String {
+        guard let stats else { return "—" }
+        let value = UnitConverter.formattedVolume(stats.totalVolume, unit: unitPreference)
+        return "\(value) \(unitPreference.lowercased())"
+    }
+
+    private var trendText: String {
+        guard let trend = stats?.strengthTrend else { return "Not enough data" }
+        let percentValue = UnitConverter.formattedNumber(abs(trend.percentChange * 100))
+        return trend.isUp ? "Up \(percentValue)%" : "Down \(percentValue)%"
+    }
+
+    private var muscleGroupText: String {
+        guard let stats else { return "No recent data" }
+        if stats.muscleGroupSets.isEmpty { return "No recent data" }
+        return stats.muscleGroupSets
+            .map { "\($0.name) \($0.setCount)" }
+            .joined(separator: " · ")
+    }
+}
+
+private struct StatMetricRow: View {
+    let title: String
+    let value: String
+    var trend: StrengthTrend?
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(value)
+                    .font(.headline)
+            }
+            Spacer()
+            if let trend {
+                Image(systemName: trend.isUp ? "arrow.up.right" : "arrow.down.right")
+                    .foregroundStyle(trend.isUp ? .green : .red)
+            }
         }
     }
 }
