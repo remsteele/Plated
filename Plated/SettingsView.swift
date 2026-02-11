@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @AppStorage("unitPreference") private var unitPreference: String = "lb"
+    @AppStorage("restTimerSeconds") private var restTimerSeconds: Int = 90
 
     var body: some View {
         List {
@@ -14,8 +15,9 @@ struct SettingsView: View {
             }
 
             Section("Rest Timer") {
-                Text("Default rest timer coming soon")
-                    .foregroundStyle(.secondary)
+                Stepper(value: $restTimerSeconds, in: 30...300, step: 15) {
+                    Text("Default: \(restTimerSeconds.formattedDuration)")
+                }
             }
 
             Section("Data") {

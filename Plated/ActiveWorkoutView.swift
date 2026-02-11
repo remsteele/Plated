@@ -6,6 +6,7 @@ struct ActiveWorkoutView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @AppStorage("unitPreference") private var unitPreference: String = "lb"
+    @AppStorage("restTimerSeconds") private var restTimerSeconds: Int = 90
 
     @Bindable var session: WorkoutSession
 
@@ -14,36 +15,59 @@ struct ActiveWorkoutView: View {
     @State private var showingCancelAlert = false
     @State private var showingSummary = false
     @State private var showingMovementPicker = false
+    @State private var restEndDate: Date?
 
     private var elapsedSeconds: Int {
         Int((session.endTime ?? now).timeIntervalSince(session.startTime))
     }
 
+    private var restRemaining: Int {
+        guard let restEndDate else { return 0 }
+        return max(0, Int(restEndDate.timeIntervalSince(now)))
+    }
+
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    ForEach(session.orderedMovements) { movement in
-                        SessionMovementCardView(
-                            sessionMovement: movement,
-                            unitPreference: unitPreference,
-                            onRemoveSet: { set in
-                                removeSet(set, from: movement)
+            List {
+                ForEach(session.orderedMovements) { movement in
+                    Section {
+                        ForEach(movement.orderedSets) { set in
+                            SetRowView(
+                                set: set,
+                                resistanceLabel: movement.selectedVariant?.resistanceType.weightLabel ?? "Weight",
+                                unit: movement.selectedVariant?.unit ?? unitPreference,
+                                isBodyweight: movement.selectedVariant?.resistanceType == .bodyweight
+                            )
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button(role: .destructive) {
+                                    removeSet(set, from: movement)
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
                             }
-                        )
-                    }
+                        }
 
+                        Button {
+                            addSet(to: movement)
+                        } label: {
+                            Label("Add set", systemImage: "plus")
+                                .font(.subheadline)
+                        }
+                    } header: {
+                        SessionMovementHeaderView(sessionMovement: movement)
+                    }
+                }
+
+                Section {
                     Button {
                         showingMovementPicker = true
                     } label: {
                         Label("Add Movement", systemImage: "plus")
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
                     }
-                    .buttonStyle(.bordered)
                 }
-                .padding()
             }
+            .listStyle(.insetGrouped)
             .navigationTitle(session.displayTitle)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -61,12 +85,23 @@ struct ActiveWorkoutView: View {
                     Text(elapsedSeconds.formattedDuration)
                         .font(.headline)
                     Spacer()
+                    Button {
+                        startRestTimer()
+                    } label: {
+                        Text(restRemaining > 0 ? "Rest \(restRemaining.formattedDuration)" : "Start Rest")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                    }
+                    .buttonStyle(.bordered)
                 }
                 .padding(.horizontal)
                 .padding(.top, 8)
             }
             .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
                 now = Date()
+                if restRemaining == 0 {
+                    restEndDate = nil
+                }
             }
             .alert("Finish Workout?", isPresented: $showingFinishAlert) {
                 Button("Finish", role: .destructive) {
@@ -108,14 +143,23 @@ struct ActiveWorkoutView: View {
             }
         }
     }
+
+    private func addSet(to movement: SessionMovement) {
+        let nextIndex = (movement.performedSets.map { $0.setIndex }.max() ?? 0) + 1
+        let newSet = PerformedSet(sessionMovement: movement, setIndex: nextIndex)
+        modelContext.insert(newSet)
+        movement.performedSets.append(newSet)
+    }
+
+    private func startRestTimer() {
+        restEndDate = Date().addingTimeInterval(Double(restTimerSeconds))
+    }
 }
 
-private struct SessionMovementCardView: View {
+private struct SessionMovementHeaderView: View {
     @Environment(\.modelContext) private var modelContext
 
     @Bindable var sessionMovement: SessionMovement
-    let unitPreference: String
-    var onRemoveSet: (PerformedSet) -> Void
 
     private var movementName: String {
         sessionMovement.movement?.name ?? "Movement"
@@ -125,33 +169,14 @@ private struct SessionMovementCardView: View {
         sessionMovement.movement?.sortedVariants ?? []
     }
 
-    private var resistanceLabel: String {
-        sessionMovement.selectedVariant?.resistanceType.weightLabel ?? "Weight"
-    }
-
-    init(
-        sessionMovement: SessionMovement,
-        unitPreference: String,
-        onRemoveSet: @escaping (PerformedSet) -> Void
-    ) {
+    init(sessionMovement: SessionMovement) {
         self._sessionMovement = Bindable(wrappedValue: sessionMovement)
-        self.unitPreference = unitPreference
-        self.onRemoveSet = onRemoveSet
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text(movementName)
-                    .font(.headline)
-                Spacer()
-                if let selected = sessionMovement.selectedVariant {
-                    Text(selected.name)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
+        VStack(alignment: .leading, spacing: 8) {
+            Text(movementName)
+                .font(.headline)
             Menu {
                 ForEach(variantOptions) { variant in
                     Button(variant.name) {
@@ -166,35 +191,8 @@ private struct SessionMovementCardView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-
-            VStack(spacing: 8) {
-                ForEach(sessionMovement.orderedSets) { set in
-                    SetRowView(
-                        set: set,
-                        resistanceLabel: resistanceLabel,
-                        unit: sessionMovement.selectedVariant?.unit ?? unitPreference,
-                        isBodyweight: sessionMovement.selectedVariant?.resistanceType == .bodyweight
-                    )
-                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        Button(role: .destructive) {
-                            onRemoveSet(set)
-                        } label: {
-                            Label("Delete", systemImage: "trash")
-                        }
-                    }
-                }
-            }
-
-            Button {
-                addSet()
-            } label: {
-                Label("Add set", systemImage: "plus")
-                    .font(.subheadline)
-            }
         }
-        .padding()
-        .background(Color(UIColor.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .textCase(nil)
         .onAppear {
             if sessionMovement.selectedVariant == nil, let movement = sessionMovement.movement {
                 sessionMovement.selectedVariant = WorkoutSessionService.recommendedVariant(
@@ -203,13 +201,6 @@ private struct SessionMovementCardView: View {
                 )
             }
         }
-    }
-
-    private func addSet() {
-        let nextIndex = (sessionMovement.performedSets.map { $0.setIndex }.max() ?? 0) + 1
-        let newSet = PerformedSet(sessionMovement: sessionMovement, setIndex: nextIndex)
-        modelContext.insert(newSet)
-        sessionMovement.performedSets.append(newSet)
     }
 }
 

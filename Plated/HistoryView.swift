@@ -66,7 +66,18 @@ private struct WorkoutHistoryRow: View {
 
     private var sessionMovementSummary: String {
         let names = session.orderedMovements.compactMap { $0.movement?.name }
-        return names.prefix(4).joined(separator: ", ") + (names.count > 4 ? "…" : "")
+        let counts = Dictionary(grouping: names, by: { $0 })
+            .mapValues { $0.count }
+        let sorted = names.reduce(into: [String]()) { result, name in
+            if !result.contains(name) {
+                result.append(name)
+            }
+        }
+        let formatted = sorted.map { name in
+            let count = counts[name, default: 1]
+            return count > 1 ? "\(name) x\(count)" : name
+        }
+        return formatted.prefix(4).joined(separator: ", ") + (formatted.count > 4 ? "…" : "")
     }
 }
 
