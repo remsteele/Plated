@@ -35,7 +35,7 @@ struct ActiveWorkoutView: View {
                             SetRowView(
                                 set: set,
                                 resistanceLabel: movement.selectedVariant?.resistanceType.weightLabel ?? "Weight",
-                                unit: movement.selectedVariant?.unit ?? unitPreference,
+                                unit: unitPreference,
                                 isBodyweight: movement.selectedVariant?.resistanceType == .bodyweight
                             )
                             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -218,6 +218,11 @@ private struct SetRowView: View {
     }
 
     var body: some View {
+        let weightBinding = Binding<Double>(
+            get: { UnitConverter.displayWeight(from: set.weight, unit: unit) },
+            set: { set.weight = UnitConverter.storedWeight(from: $0, unit: unit) }
+        )
+
         HStack(spacing: 12) {
             Text("Set \(set.setIndex)")
                 .font(.caption)
@@ -233,7 +238,7 @@ private struct SetRowView: View {
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     } else {
-                        TextField("0", value: $set.weight, format: .number)
+                        TextField("0", value: weightBinding, format: .number)
                             .keyboardType(.decimalPad)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 80)

@@ -85,6 +85,8 @@ private struct WorkoutDetailView: View {
     let session: WorkoutSession
     var onDuplicate: () -> Void
 
+    @AppStorage("unitPreference") private var unitPreference: String = "lb"
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -115,7 +117,7 @@ private struct WorkoutDetailView: View {
                             HStack {
                                 Text("Set \(set.setIndex)")
                                 Spacer()
-                                Text("\(set.weight, specifier: "%.1f") x \(set.reps)")
+                                Text("\(UnitConverter.formattedWeight(set.weight, unit: unitPreference)) x \(set.reps)")
                             }
                             .font(set.id == movement.bestSet?.id ? .headline : .subheadline)
                         }

@@ -366,6 +366,17 @@ private struct MovementEditorView: View {
     @State private var variantToEdit: MovementVariant?
     @State private var showDuplicateAlert = false
 
+    private let baseCategories = [
+        "Chest",
+        "Shoulders",
+        "Back",
+        "Legs",
+        "Arms",
+        "Core",
+        "Full Body",
+        "Cardio"
+    ]
+
     init(movement: Movement, isNew: Bool) {
         self._movement = Bindable(wrappedValue: movement)
         self.isNew = isNew
@@ -376,7 +387,20 @@ private struct MovementEditorView: View {
             Form {
                 Section("Movement") {
                     TextField("Name", text: $movement.name)
-                    TextField("Category", text: $movement.category)
+                    Menu {
+                        ForEach(categoryOptions, id: \.self) { category in
+                            Button(category) {
+                                movement.category = category
+                            }
+                        }
+                    } label: {
+                        HStack {
+                            Text("Category")
+                            Spacer()
+                            Text(movement.category.isEmpty ? "Select" : movement.category)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                     Stepper("Default Sets: \(movement.defaultSetCount)", value: $movement.defaultSetCount, in: 1...10)
                     TextField("Notes", text: Binding(
                         get: { movement.notes ?? "" },
@@ -448,6 +472,15 @@ private struct MovementEditorView: View {
         movement.name = trimmed
         dismiss()
     }
+
+    private var categoryOptions: [String] {
+        let current = movement.category.trimmingCharacters(in: .whitespacesAndNewlines)
+        if current.isEmpty { return baseCategories }
+        if baseCategories.contains(where: { $0.lowercased() == current.lowercased() }) {
+            return baseCategories
+        }
+        return [current] + baseCategories
+    }
 }
 
 private struct VariantEditorView: View {
@@ -458,9 +491,9 @@ private struct VariantEditorView: View {
 
     @State private var name: String = ""
     @State private var resistanceType: ResistanceType = .totalWeight
-    @State private var unit: String = "lb"
-    @State private var increment: String = ""
+    @State private var incrementSelection: Double?
     @State private var notes: String = ""
+    private let baseIncrements: [Double] = [0.5, 1, 2.5, 5, 10]
 
     var body: some View {
         NavigationStack {
@@ -472,9 +505,21 @@ private struct VariantEditorView: View {
                             Text(type.displayName).tag(type)
                         }
                     }
-                    TextField("Unit", text: $unit)
-                    TextField("Increment", text: $increment)
-                        .keyboardType(.decimalPad)
+                    Menu {
+                        Button("None") { incrementSelection = nil }
+                        ForEach(incrementOptions, id: \.self) { value in
+                            Button(formatIncrement(value)) {
+                                incrementSelection = value
+                            }
+                        }
+                    } label: {
+                        HStack {
+                            Text("Increment")
+                            Spacer()
+                            Text(incrementSelection.map(formatIncrement) ?? "None")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                     TextField("Notes", text: $notes)
                 }
             }
@@ -492,8 +537,7 @@ private struct VariantEditorView: View {
                 if let variant {
                     name = variant.name
                     resistanceType = variant.resistanceType
-                    unit = variant.unit
-                    increment = variant.increment.map { String($0) } ?? ""
+                    incrementSelection = variant.increment
                     notes = variant.notes ?? ""
                 }
             }
@@ -502,24 +546,36 @@ private struct VariantEditorView: View {
 
     private func saveVariant() {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let incrementValue = Double(increment)
         if let variant {
             variant.name = trimmed
             variant.resistanceType = resistanceType
-            variant.unit = unit.isEmpty ? "lb" : unit
-            variant.increment = incrementValue
+            variant.increment = incrementSelection
             variant.notes = notes.isEmpty ? nil : notes
         } else {
             let newVariant = MovementVariant(
                 movement: movement,
                 name: trimmed,
                 resistanceType: resistanceType,
-                unit: unit.isEmpty ? "lb" : unit,
-                increment: incrementValue,
+                increment: incrementSelection,
                 notes: notes.isEmpty ? nil : notes
             )
             movement.variants.append(newVariant)
         }
         dismiss()
+    }
+
+    private var incrementOptions: [Double] {
+        var options = baseIncrements
+        if let selection = incrementSelection, !options.contains(selection) {
+            options.append(selection)
+        }
+        return options.sorted()
+    }
+
+    private func formatIncrement(_ value: Double) -> String {
+        if value.truncatingRemainder(dividingBy: 1) == 0 {
+            return String(format: "%.0f", value)
+        }
+        return String(format: "%.1f", value)
     }
 }
