@@ -7,6 +7,7 @@ struct ActiveWorkoutView: View {
     @Environment(\.modelContext) private var modelContext
     @AppStorage("unitPreference") private var unitPreference: String = "lb"
     @AppStorage("restTimerSeconds") private var restTimerSeconds: Int = 90
+    @AppStorage("autoStartRest") private var autoStartRest: Bool = true
 
     @Bindable var session: WorkoutSession
 
@@ -36,7 +37,8 @@ struct ActiveWorkoutView: View {
                                 set: set,
                                 resistanceLabel: movement.selectedVariant?.resistanceType.weightLabel ?? "Weight",
                                 unit: unitPreference,
-                                isBodyweight: movement.selectedVariant?.resistanceType == .bodyweight
+                                isBodyweight: movement.selectedVariant?.resistanceType == .bodyweight,
+                                onCompleted: handleSetCompleted
                             )
                             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                 Button(role: .destructive) {
@@ -154,6 +156,12 @@ struct ActiveWorkoutView: View {
     private func startRestTimer() {
         restEndDate = Date().addingTimeInterval(Double(restTimerSeconds))
     }
+
+    private func handleSetCompleted() {
+        if autoStartRest {
+            startRestTimer()
+        }
+    }
 }
 
 private struct SessionMovementHeaderView: View {
@@ -209,12 +217,20 @@ private struct SetRowView: View {
     let resistanceLabel: String
     let unit: String
     let isBodyweight: Bool
+    let onCompleted: () -> Void
 
-    init(set: PerformedSet, resistanceLabel: String, unit: String, isBodyweight: Bool) {
+    init(
+        set: PerformedSet,
+        resistanceLabel: String,
+        unit: String,
+        isBodyweight: Bool,
+        onCompleted: @escaping () -> Void
+    ) {
         self._set = Bindable(wrappedValue: set)
         self.resistanceLabel = resistanceLabel
         self.unit = unit
         self.isBodyweight = isBodyweight
+        self.onCompleted = onCompleted
     }
 
     var body: some View {
@@ -261,8 +277,23 @@ private struct SetRowView: View {
 
             Spacer()
 
-            Toggle("Done", isOn: $set.isCompleted)
-                .labelsHidden()
+            Button {
+                set.isCompleted.toggle()
+            } label: {
+                Image(systemName: set.isCompleted ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(set.isCompleted ? Color.green : Color.secondary)
+            }
+            .buttonStyle(.plain)
+        }
+        .opacity(set.isCompleted ? 0.55 : 1)
+        .onChange(of: set.reps) { _, newValue in
+            set.isCompleted = newValue > 0
+        }
+        .onChange(of: set.isCompleted) { _, newValue in
+            if newValue {
+                onCompleted()
+            }
         }
     }
 

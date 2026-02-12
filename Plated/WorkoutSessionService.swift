@@ -76,6 +76,7 @@ enum WorkoutSessionService {
     }
 
     static func finishSession(_ session: WorkoutSession, context: ModelContext) {
+        pruneIncompleteSets(for: session, context: context)
         session.endTime = Date()
         session.durationSeconds = Int(session.endTime?.timeIntervalSince(session.startTime) ?? 0)
         session.status = .completed
@@ -177,6 +178,23 @@ enum WorkoutSessionService {
                 } else {
                     set.isPR = false
                 }
+            }
+        }
+    }
+
+    private static func pruneIncompleteSets(for session: WorkoutSession, context: ModelContext) {
+        for movement in session.sessionItems {
+            let kept = movement.performedSets
+                .filter { $0.isCompleted && $0.reps > 0 }
+                .sorted { $0.setIndex < $1.setIndex }
+
+            for set in movement.performedSets where !(set.isCompleted && set.reps > 0) {
+                context.delete(set)
+            }
+
+            movement.performedSets = kept
+            for (index, set) in kept.enumerated() {
+                set.setIndex = index + 1
             }
         }
     }

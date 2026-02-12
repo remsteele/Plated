@@ -197,7 +197,7 @@ enum StatsService {
     }
 
     private static func isWorkingSet(_ set: PerformedSet) -> Bool {
-        !set.isWarmup && set.reps > 0
+        !set.isWarmup && set.isCompleted && set.reps > 0
     }
 
     private static func muscleGroupCounts(from sets: [PerformedSet]) -> [MuscleGroupStat] {
