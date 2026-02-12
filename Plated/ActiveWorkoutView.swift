@@ -146,7 +146,7 @@ struct ActiveWorkoutView: View {
 
     private func addSet(to movement: SessionMovement) {
         let nextIndex = (movement.performedSets.map { $0.setIndex }.max() ?? 0) + 1
-        let newSet = PerformedSet(sessionMovement: movement, setIndex: nextIndex)
+        let newSet = PerformedSet(sessionMovement: movement, setIndex: nextIndex, weight: 0)
         modelContext.insert(newSet)
         movement.performedSets.append(newSet)
     }

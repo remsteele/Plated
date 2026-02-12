@@ -362,8 +362,6 @@ private struct MovementEditorView: View {
     @Bindable var movement: Movement
     let isNew: Bool
 
-    @State private var showingVariantEditor = false
-    @State private var variantToEdit: MovementVariant?
     @State private var showDuplicateAlert = false
 
     private let baseCategories = [
@@ -410,21 +408,12 @@ private struct MovementEditorView: View {
 
                 Section("Variants") {
                     ForEach(movement.sortedVariants) { variant in
-                        Button {
-                            variantToEdit = variant
-                        } label: {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(variant.name)
-                                Text(variant.resistanceType.displayName)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
+                        VariantRowView(variant: variant, movementName: movement.name)
                     }
                     .onDelete(perform: deleteVariants)
 
                     Button {
-                        showingVariantEditor = true
+                        addVariant()
                     } label: {
                         Label("Add Variant", systemImage: "plus")
                     }
@@ -441,12 +430,6 @@ private struct MovementEditorView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { saveMovement() }
                 }
-            }
-            .sheet(isPresented: $showingVariantEditor) {
-                VariantEditorView(movement: movement)
-            }
-            .sheet(item: $variantToEdit) { variant in
-                VariantEditorView(movement: movement, variant: variant)
             }
             .alert("Movement name must be unique", isPresented: $showDuplicateAlert) {
                 Button("OK", role: .cancel) {}
@@ -473,6 +456,16 @@ private struct MovementEditorView: View {
         dismiss()
     }
 
+    private func addVariant() {
+        let preset = variantPresets.first ?? VariantPreset(title: "Custom • Total Weight", name: "Custom", resistanceType: .totalWeight)
+        let newVariant = MovementVariant(
+            movement: movement,
+            name: preset.name,
+            resistanceType: preset.resistanceType
+        )
+        movement.variants.append(newVariant)
+    }
+
     private var categoryOptions: [String] {
         let current = movement.category.trimmingCharacters(in: .whitespacesAndNewlines)
         if current.isEmpty { return baseCategories }
@@ -483,99 +476,71 @@ private struct MovementEditorView: View {
     }
 }
 
-private struct VariantEditorView: View {
-    @Environment(\.dismiss) private var dismiss
+private struct VariantRowView: View {
+    @Bindable var variant: MovementVariant
+    let movementName: String
 
-    let movement: Movement
-    var variant: MovementVariant?
-
-    @State private var name: String = ""
-    @State private var resistanceType: ResistanceType = .totalWeight
-    @State private var incrementSelection: Double?
-    @State private var notes: String = ""
-    private let baseIncrements: [Double] = [0.5, 1, 2.5, 5, 10]
+    @State private var showCustomName = false
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section("Variant") {
-                    TextField("Name", text: $name)
-                    Picker("Resistance", selection: $resistanceType) {
-                        ForEach(ResistanceType.allCases) { type in
-                            Text(type.displayName).tag(type)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(combinedName)
+                    .font(.headline)
+                Spacer()
+                Menu {
+                    ForEach(variantPresets) { preset in
+                        Button(preset.title) {
+                            variant.name = preset.name
+                            variant.resistanceType = preset.resistanceType
+                            showCustomName = false
                         }
                     }
-                    Menu {
-                        Button("None") { incrementSelection = nil }
-                        ForEach(incrementOptions, id: \.self) { value in
-                            Button(formatIncrement(value)) {
-                                incrementSelection = value
-                            }
-                        }
-                    } label: {
-                        HStack {
-                            Text("Increment")
-                            Spacer()
-                            Text(incrementSelection.map(formatIncrement) ?? "None")
-                                .foregroundStyle(.secondary)
-                        }
+                    Button("Custom name…") {
+                        showCustomName = true
                     }
-                    TextField("Notes", text: $notes)
+                } label: {
+                    Text(variant.name.isEmpty ? "Select" : variant.name)
+                        .foregroundStyle(.secondary)
                 }
             }
-            .navigationTitle(variant == nil ? "Add Variant" : "Edit Variant")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { saveVariant() }
-                        .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
+
+            if showCustomName || !matchesPreset {
+                TextField("Custom name", text: $variant.name)
             }
-            .onAppear {
-                if let variant {
-                    name = variant.name
-                    resistanceType = variant.resistanceType
-                    incrementSelection = variant.increment
-                    notes = variant.notes ?? ""
-                }
-            }
+        }
+        .onAppear {
+            showCustomName = !matchesPreset
         }
     }
 
-    private func saveVariant() {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let variant {
-            variant.name = trimmed
-            variant.resistanceType = resistanceType
-            variant.increment = incrementSelection
-            variant.notes = notes.isEmpty ? nil : notes
-        } else {
-            let newVariant = MovementVariant(
-                movement: movement,
-                name: trimmed,
-                resistanceType: resistanceType,
-                increment: incrementSelection,
-                notes: notes.isEmpty ? nil : notes
-            )
-            movement.variants.append(newVariant)
+    private var matchesPreset: Bool {
+        variantPresets.contains { preset in
+            preset.name.lowercased() == variant.name.lowercased() && preset.resistanceType == variant.resistanceType
         }
-        dismiss()
     }
 
-    private var incrementOptions: [Double] {
-        var options = baseIncrements
-        if let selection = incrementSelection, !options.contains(selection) {
-            options.append(selection)
+    private var combinedName: String {
+        let trimmed = variant.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            return movementName
         }
-        return options.sorted()
+        return "\(trimmed) \(movementName)"
     }
+}
 
-    private func formatIncrement(_ value: Double) -> String {
-        if value.truncatingRemainder(dividingBy: 1) == 0 {
-            return String(format: "%.0f", value)
-        }
-        return String(format: "%.1f", value)
-    }
+private let variantPresets: [VariantPreset] = [
+    VariantPreset(title: "Dumbbell • Per Dumbbell", name: "Dumbbell", resistanceType: .perDumbbell),
+    VariantPreset(title: "Barbell • Total Weight", name: "Barbell", resistanceType: .totalWeight),
+    VariantPreset(title: "Machine • Total Weight", name: "Machine", resistanceType: .totalWeight),
+    VariantPreset(title: "Cable • Stack Weight", name: "Cable", resistanceType: .cableStack),
+    VariantPreset(title: "Bodyweight", name: "Bodyweight", resistanceType: .bodyweight),
+    VariantPreset(title: "Assisted", name: "Assisted", resistanceType: .assisted)
+]
+
+private struct VariantPreset: Identifiable {
+    let id = UUID()
+    let title: String
+    let name: String
+    let resistanceType: ResistanceType
 }

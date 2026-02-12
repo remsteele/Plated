@@ -132,7 +132,6 @@ final class MovementVariant {
     var movement: Movement?
     var name: String
     var resistanceType: ResistanceType
-    var increment: Double?
     var notes: String?
 
     init(
@@ -140,14 +139,12 @@ final class MovementVariant {
         movement: Movement? = nil,
         name: String,
         resistanceType: ResistanceType = .totalWeight,
-        increment: Double? = nil,
         notes: String? = nil
     ) {
         self.id = id
         self.movement = movement
         self.name = name
         self.resistanceType = resistanceType
-        self.increment = increment
         self.notes = notes
     }
 }
