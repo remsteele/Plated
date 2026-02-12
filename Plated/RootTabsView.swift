@@ -13,6 +13,7 @@ struct RootTabsView: View {
     @State private var showingStartSheet = false
     @State private var activeSession: WorkoutSession?
     @StateObject private var startWorkoutCoordinator = StartWorkoutCoordinator()
+    @State private var now = Date()
 
     private var inProgressSessions: [WorkoutSession] {
         sessions.filter { $0.status == .inProgress }
@@ -46,13 +47,13 @@ struct RootTabsView: View {
         }
         .environmentObject(startWorkoutCoordinator)
         .overlay(alignment: .bottom) {
-            StartWorkoutBar(title: barTitle, systemImage: barIcon) {
-                if let duplicate = startWorkoutCoordinator.duplicateSession {
+            StartWorkoutBar(title: barTitle, subtitle: barSubtitle, systemImage: barIcon) {
+                if let current = inProgressSession {
+                    activeSession = current
+                } else if let duplicate = startWorkoutCoordinator.duplicateSession {
                     let session = WorkoutSessionService.duplicateSession(from: duplicate, context: modelContext)
                     activeSession = session
                     startWorkoutCoordinator.reset()
-                } else if let current = inProgressSessions.first {
-                    activeSession = current
                 } else {
                     showingStartSheet = true
                 }
@@ -60,6 +61,10 @@ struct RootTabsView: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 58)
             .animation(.easeInOut(duration: 0.2), value: barTitle)
+            .animation(.easeInOut(duration: 0.2), value: barSubtitle)
+        }
+        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
+            now = Date()
         }
         .onChange(of: selectedTab) { _, newValue in
             if newValue != 1 {
@@ -78,27 +83,52 @@ struct RootTabsView: View {
     }
 
     private var barTitle: String {
-        startWorkoutCoordinator.duplicateSession == nil ? "Start Workout" : "Repeat Workout"
+        if inProgressSession != nil {
+            return "Continue Workout"
+        }
+        return startWorkoutCoordinator.duplicateSession == nil ? "Start Workout" : "Repeat Workout"
     }
 
     private var barIcon: String {
-        startWorkoutCoordinator.duplicateSession == nil ? "bolt.fill" : "doc.on.doc"
+        if inProgressSession != nil {
+            return "play.fill"
+        }
+        return startWorkoutCoordinator.duplicateSession == nil ? "bolt.fill" : "doc.on.doc"
+    }
+
+    private var barSubtitle: String? {
+        guard let session = inProgressSession else { return nil }
+        let elapsed = Int(now.timeIntervalSince(session.startTime))
+        return elapsed.formattedDuration
+    }
+
+    private var inProgressSession: WorkoutSession? {
+        inProgressSessions.first
     }
 }
 
 private struct StartWorkoutBar: View {
     let title: String
+    let subtitle: String?
     let systemImage: String
     var action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Label(title, systemImage: systemImage)
-                .fontWeight(.semibold)
-                .contentTransition(.opacity)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 10)
-                .contentShape(Rectangle())
+            HStack(spacing: 10) {
+                Image(systemName: systemImage)
+                Text(title)
+                    .fontWeight(.semibold)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .contentTransition(.opacity)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
         }
         .background(.ultraThinMaterial)
         .clipShape(Capsule())
