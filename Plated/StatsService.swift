@@ -30,6 +30,19 @@ struct ExerciseChartPoint: Identifiable {
     let value: Double
 }
 
+struct ExerciseHistoryEntry: Identifiable {
+    let id: String
+    let movement: Movement
+    let variant: MovementVariant?
+
+    var displayName: String {
+        if let variant {
+            return "\(variant.name) \(movement.name)"
+        }
+        return movement.name
+    }
+}
+
 struct ExerciseSetLogEntry: Identifiable {
     let id = UUID()
     let date: Date
@@ -71,22 +84,34 @@ enum StatsService {
         )
     }
 
-    static func performedMovements(from sessions: [WorkoutSession]) -> [Movement] {
-        var seen = Set<UUID>()
-        var result: [Movement] = []
+    static func exerciseHistoryEntries(from sessions: [WorkoutSession]) -> [ExerciseHistoryEntry] {
+        var entries: [String: ExerciseHistoryEntry] = [:]
+
         for session in sessions where session.status == .completed {
             for item in session.sessionItems {
                 guard let movement = item.movement,
                       item.performedSets.contains(where: isWorkingSet) else { continue }
-                if seen.insert(movement.id).inserted {
-                    result.append(movement)
+
+                let variant = item.selectedVariant
+                let key = "\(movement.id.uuidString)-\(variant?.id.uuidString ?? "none")"
+
+                if entries[key] == nil {
+                    entries[key] = ExerciseHistoryEntry(id: key, movement: movement, variant: variant)
                 }
             }
         }
-        return result.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+
+        return entries.values.sorted {
+            $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending
+        }
     }
 
-    static func exerciseHistory(for movement: Movement, sessions: [WorkoutSession], now: Date = Date()) -> ExerciseHistorySummary {
+    static func exerciseHistory(
+        for movement: Movement,
+        variant: MovementVariant?,
+        sessions: [WorkoutSession],
+        now: Date = Date()
+    ) -> ExerciseHistorySummary {
         let calendar = Calendar.current
         var bestSetByDay: [Date: Double] = [:]
         var volumeBySession: [Date: Double] = [:]
@@ -100,7 +125,13 @@ enum StatsService {
         for session in sessions where session.status == .completed {
             let sessionDate = session.startTime
             let day = calendar.startOfDay(for: sessionDate)
-            let movementItems = session.sessionItems.filter { $0.movement?.id == movement.id }
+            let movementItems = session.sessionItems.filter { item in
+                guard item.movement?.id == movement.id else { return false }
+                if let variant {
+                    return item.selectedVariant?.id == variant.id
+                }
+                return true
+            }
             let workingSets = movementItems.flatMap { $0.performedSets }.filter(isWorkingSet)
 
             guard !workingSets.isEmpty else { continue }

@@ -9,16 +9,16 @@ struct ExerciseHistoryListView: View {
     ) private var sessions: [WorkoutSession]
 
     @State private var searchText = ""
-    @State private var performedMovements: [Movement] = []
+    @State private var entries: [ExerciseHistoryEntry] = []
 
     var body: some View {
         List {
-            if filteredMovements.isEmpty {
+            if filteredEntries.isEmpty {
                 ContentUnavailableView("No exercise history yet", systemImage: "chart.xyaxis.line")
             } else {
-                ForEach(filteredMovements) { movement in
-                    NavigationLink(movement.name) {
-                        ExerciseHistoryDetailView(movement: movement)
+                ForEach(filteredEntries) { entry in
+                    NavigationLink(entry.displayName) {
+                        ExerciseHistoryDetailView(entry: entry)
                     }
                 }
             }
@@ -26,13 +26,13 @@ struct ExerciseHistoryListView: View {
         .navigationTitle("Exercise History")
         .searchable(text: $searchText)
         .task(id: sessions.count) {
-            performedMovements = StatsService.performedMovements(from: sessions)
+            entries = StatsService.exerciseHistoryEntries(from: sessions)
         }
     }
 
-    private var filteredMovements: [Movement] {
-        guard !searchText.isEmpty else { return performedMovements }
-        return performedMovements.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+    private var filteredEntries: [ExerciseHistoryEntry] {
+        guard !searchText.isEmpty else { return entries }
+        return entries.filter { $0.displayName.localizedCaseInsensitiveContains(searchText) }
     }
 }
 
@@ -42,7 +42,7 @@ private struct ExerciseHistoryDetailView: View {
         case volume = "Total Volume"
     }
 
-    let movement: Movement
+    let entry: ExerciseHistoryEntry
 
     @Query(
         sort: \WorkoutSession.startTime,
@@ -118,9 +118,9 @@ private struct ExerciseHistoryDetailView: View {
                 }
             }
         }
-        .navigationTitle(movement.name)
+        .navigationTitle(entry.displayName)
         .task(id: sessions.count) {
-            summary = StatsService.exerciseHistory(for: movement, sessions: sessions)
+            summary = StatsService.exerciseHistory(for: entry.movement, variant: entry.variant, sessions: sessions)
         }
     }
 
