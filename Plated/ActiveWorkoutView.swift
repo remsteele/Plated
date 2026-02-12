@@ -219,8 +219,8 @@ private struct SetRowView: View {
 
     var body: some View {
         let weightBinding = Binding<Double>(
-            get: { UnitConverter.displayWeight(from: set.weight, unit: unit) },
-            set: { set.weight = UnitConverter.storedWeight(from: $0, unit: unit) }
+            get: { roundToOneDecimal(UnitConverter.displayWeight(from: set.weight, unit: unit)) },
+            set: { set.weight = UnitConverter.storedWeight(from: roundToOneDecimal($0), unit: unit) }
         )
 
         HStack(spacing: 12) {
@@ -238,7 +238,7 @@ private struct SetRowView: View {
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     } else {
-                        TextField("0", value: weightBinding, format: .number)
+                        TextField("0", value: weightBinding, format: .number.precision(.fractionLength(1)))
                             .keyboardType(.decimalPad)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 80)
@@ -264,6 +264,10 @@ private struct SetRowView: View {
             Toggle("Done", isOn: $set.isCompleted)
                 .labelsHidden()
         }
+    }
+
+    private func roundToOneDecimal(_ value: Double) -> Double {
+        (value * 10).rounded() / 10
     }
 }
 
