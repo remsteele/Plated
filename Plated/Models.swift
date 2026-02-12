@@ -181,6 +181,7 @@ final class TemplateItem {
     @Attribute(.unique) var id: UUID
     var template: WorkoutTemplate?
     var movement: Movement?
+    var defaultVariant: MovementVariant?
     var quantity: Int
     var targetSets: Int?
     var orderingIndex: Int
@@ -189,6 +190,7 @@ final class TemplateItem {
         id: UUID = UUID(),
         template: WorkoutTemplate? = nil,
         movement: Movement? = nil,
+        defaultVariant: MovementVariant? = nil,
         quantity: Int = 1,
         targetSets: Int? = nil,
         orderingIndex: Int = 0
@@ -196,6 +198,7 @@ final class TemplateItem {
         self.id = id
         self.template = template
         self.movement = movement
+        self.defaultVariant = defaultVariant
         self.quantity = quantity
         self.targetSets = targetSets
         self.orderingIndex = orderingIndex

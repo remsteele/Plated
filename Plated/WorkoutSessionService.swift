@@ -15,10 +15,12 @@ enum WorkoutSessionService {
                     orderingIndex += 1
                     if let movement = item.movement {
                         let targetSets = item.targetSets ?? movement.defaultSetCount
+                        let preferredVariant = item.defaultVariant
                         let sessionMovement = buildSessionMovement(
                             movement: movement,
                             targetSets: targetSets,
                             orderingIndex: orderingIndex,
+                            selectedVariant: preferredVariant,
                             context: context
                         )
                         sessionMovement.session = session
@@ -106,11 +108,13 @@ enum WorkoutSessionService {
         movement: Movement,
         targetSets: Int,
         orderingIndex: Int,
+        selectedVariant: MovementVariant? = nil,
         context: ModelContext
     ) -> SessionMovement {
+        let variant = selectedVariant ?? recommendedVariant(for: movement, context: context)
         let sessionMovement = SessionMovement(
             movement: movement,
-            selectedVariant: recommendedVariant(for: movement, context: context),
+            selectedVariant: variant,
             orderingIndex: orderingIndex,
             targetSetCount: max(targetSets, 1)
         )

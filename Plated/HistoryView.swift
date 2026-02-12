@@ -65,7 +65,7 @@ private struct WorkoutHistoryRow: View {
     }
 
     private var sessionMovementSummary: String {
-        let names = session.orderedMovements.compactMap { $0.movement?.name }
+        let names = session.orderedMovements.compactMap { movementLabel($0) }
         let counts = Dictionary(grouping: names, by: { $0 })
             .mapValues { $0.count }
         let sorted = names.reduce(into: [String]()) { result, name in
@@ -78,6 +78,14 @@ private struct WorkoutHistoryRow: View {
             return count > 1 ? "\(name) x\(count)" : name
         }
         return formatted.prefix(4).joined(separator: ", ") + (formatted.count > 4 ? "…" : "")
+    }
+
+    private func movementLabel(_ item: SessionMovement) -> String? {
+        guard let movement = item.movement?.name else { return nil }
+        if let variant = item.selectedVariant?.name {
+            return "\(variant) \(movement)"
+        }
+        return movement
     }
 }
 
@@ -105,14 +113,9 @@ private struct WorkoutDetailView: View {
                 ForEach(session.orderedMovements) { movement in
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
-                            Text(movement.movement?.name ?? "Movement")
+                            Text(movementTitle(movement))
                                 .font(.headline)
                             Spacer()
-                            if let variant = movement.selectedVariant {
-                                Text(variant.name)
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                            }
                         }
 
                         ForEach(movement.orderedSets) { set in
@@ -150,5 +153,13 @@ private struct WorkoutDetailView: View {
         .onDisappear {
             startWorkoutCoordinator.reset()
         }
+    }
+
+    private func movementTitle(_ movement: SessionMovement) -> String {
+        guard let name = movement.movement?.name else { return "Movement" }
+        if let variant = movement.selectedVariant?.name {
+            return "\(variant) \(name)"
+        }
+        return name
     }
 }

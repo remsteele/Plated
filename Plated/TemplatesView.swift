@@ -208,7 +208,7 @@ private struct TemplateEditorView: View {
                             itemToEdit = item
                         } label: {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(item.movement?.name ?? "Movement")
+                                Text(itemLabel(item))
                                 Text("Quantity: \(item.quantity) | Sets: \(item.targetSets ?? item.movement?.defaultSetCount ?? 3)")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
@@ -272,6 +272,14 @@ private struct TemplateEditorView: View {
             item.orderingIndex = index
         }
     }
+
+    private func itemLabel(_ item: TemplateItem) -> String {
+        let movementName = item.movement?.name ?? "Movement"
+        if let variant = item.defaultVariant {
+            return "\(movementName) • \(variant.name)"
+        }
+        return movementName
+    }
 }
 
 private struct TemplateItemEditorView: View {
@@ -282,6 +290,7 @@ private struct TemplateItemEditorView: View {
     var item: TemplateItem?
 
     @State private var selectedMovement: Movement?
+    @State private var selectedVariant: MovementVariant?
     @State private var quantity: Int = 1
     @State private var targetSets: String = ""
 
@@ -301,6 +310,23 @@ private struct TemplateItemEditorView: View {
                             Spacer()
                             Text(selectedMovement?.name ?? "Select")
                                 .foregroundStyle(.secondary)
+                        }
+                    }
+                    if let movement = selectedMovement {
+                        Menu {
+                            Button("No default") { selectedVariant = nil }
+                            ForEach(movement.sortedVariants) { variant in
+                                Button(variant.name) {
+                                    selectedVariant = variant
+                                }
+                            }
+                        } label: {
+                            HStack {
+                                Text("Default Variant")
+                                Spacer()
+                                Text(selectedVariant?.name ?? "None")
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
                 }
@@ -323,10 +349,20 @@ private struct TemplateItemEditorView: View {
             .onAppear {
                 if let item {
                     selectedMovement = item.movement
+                    selectedVariant = item.defaultVariant
                     quantity = item.quantity
                     targetSets = item.targetSets.map(String.init) ?? ""
                 } else {
                     selectedMovement = movements.first
+                }
+            }
+            .onChange(of: selectedMovement) { _, newValue in
+                guard let movement = newValue else {
+                    selectedVariant = nil
+                    return
+                }
+                if let selectedVariant, selectedVariant.movement?.id != movement.id {
+                    self.selectedVariant = nil
                 }
             }
         }
@@ -338,12 +374,14 @@ private struct TemplateItemEditorView: View {
 
         if let item {
             item.movement = movement
+            item.defaultVariant = selectedVariant
             item.quantity = quantity
             item.targetSets = setsValue
         } else {
             let newItem = TemplateItem(
                 template: template,
                 movement: movement,
+                defaultVariant: selectedVariant,
                 quantity: quantity,
                 targetSets: setsValue,
                 orderingIndex: template.templateItems.count
@@ -457,7 +495,7 @@ private struct MovementEditorView: View {
     }
 
     private func addVariant() {
-        let preset = variantPresets.first ?? VariantPreset(title: "Custom • Total Weight", name: "Custom", resistanceType: .totalWeight)
+        let preset = variantPresets.first ?? VariantPreset(title: "Barbell • Total Weight", name: "Barbell", resistanceType: .totalWeight)
         let newVariant = MovementVariant(
             movement: movement,
             name: preset.name,
