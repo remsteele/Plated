@@ -24,7 +24,7 @@ struct ActiveWorkoutView: View {
 
     private var restRemaining: Int {
         guard let restEndDate else { return 0 }
-        return max(0, Int(restEndDate.timeIntervalSince(now)))
+        return max(0, Int(ceil(restEndDate.timeIntervalSince(now))))
     }
 
     var body: some View {
@@ -154,7 +154,13 @@ struct ActiveWorkoutView: View {
     }
 
     private func startRestTimer() {
-        restEndDate = Date().addingTimeInterval(Double(restTimerSeconds))
+        let current = Date()
+        now = current
+        if restRemaining > 0 {
+            restEndDate = nil
+            return
+        }
+        restEndDate = current.addingTimeInterval(Double(restTimerSeconds))
     }
 
     private func handleSetCompleted() {
